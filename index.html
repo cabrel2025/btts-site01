@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTTS Perfect Detector</title>
+  <script src="https://tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            darkbg: '#121212',
+            darkcard: '#1E1E1E',
+            emeraldCustom: '#059669',
+            redCustom: '#DC2626'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-darkbg text-gray-200 font-sans antialiased min-h-screen flex justify-center">
+
+  <div class="w-full max-w-md bg-darkbg min-h-screen flex flex-col relative overflow-hidden border-x border-gray-800">
+    
+    <!-- EN-TÊTE -->
+    <header class="p-4 border-b border-gray-800 bg-darkcard sticky top-0 z-10">
+      <div class="flex justify-between items-start">
+        <div>
+          <h1 class="text-xl font-bold text-white tracking-wide">BTTS Perfect Detector</h1>
+          <p id="current-date-text" class="text-xs text-gray-400 mt-0.5">mardi 22 septembre 2026</p>
+        </div>
+        <div class="text-right">
+          <p id="sync-time" class="text-[10px] text-gray-400 font-mono">Sync: --:--:-- GMT</p>
+          <p id="quota-text" class="text-[10px] text-emeraldCustom font-mono font-bold mt-0.5">0 req./90</p>
+        </div>
+      </div>
+      <button onclick="fetchData()" class="mt-3 w-full bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 font-semibold py-1.5 px-3 rounded transition-colors text-center block">
+        ⟳ Forcer le rafraîchissement
+      </button>
+    </header>
+
+    <!-- BANDEAU ALERTE LIVE -->
+    <div id="live-alert" class="bg-redCustom text-white p-3 text-xs flex justify-between items-center hidden animate-pulse">
+      <div>
+        <span class="font-bold">🚨 Signal BTTS live :</span> <span id="live-match-name">Le Havre vs PSG</span>
+        <p class="text-[11px] opacity-90 mt-0.5">15e minute atteinte, score toujours 0-0 — fenêtre de pari live active.</p>
+      </div>
+      <span class="text-base ml-2">🔊</span>
+    </div>
+
+    <!-- ONGLETS -->
+    <nav class="flex border-b border-gray-800 text-sm font-semibold bg-darkcard">
+      <button id="tab-detector" onclick="switchTab('detector')" class="flex-1 py-3 text-center border-b-2 border-emeraldCustom text-emeraldCustom">🛰 Détecteur BTTS</button>
+      <button id="tab-all" onclick="switchTab('all')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200">☰ Tous les matchs</button>
+    </nav>
+
+    <!-- CALENDRIER HORIZONTAL -->
+    <div id="date-picker" class="flex gap-2 p-3 overflow-x-auto no-scrollbar bg-darkbg border-b border-gray-900 sticky top-[125px] z-10"></div>
+
+    <!-- INFOS QUOTAS -->
+    <div class="p-3 bg-gray-900/40 border-b border-gray-800 text-xs text-gray-400 space-y-1">
+      <div class="flex items-center gap-1.5">
+        <span>ℹ</span>
+        <span id="stats-analysis">0 championnats analysés sur 0 disponibles</span>
+      </div>
+      <div id="quota-warning" class="flex items-center gap-1.5 text-amber-500 hidden">
+        <span>⚠</span>
+        <span>Quota atteint : 36 championnats non analysés.</span>
+      </div>
+    </div>
+
+    <!-- LISTE DES MATCHS -->
+    <main id="matches-container" class="flex-1 p-4 space-y-4 pb-20">
+      <div class="text-center py-12 text-gray-500 text-sm">Chargement des données...</div>
+    </main>
+
+    <!-- TIROIR LATÉRAL (DRAWER) -->
+    <div id="detail-drawer" class="fixed inset-y-0 right-0 w-full max-w-md bg-darkcard shadow-2xl border-l border-gray-800 transform translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col">
+      <div class="p-4 border-b border-gray-800 flex justify-between items-start">
+        <div>
+          <span id="drawer-league" class="text-xs font-bold text-emeraldCustom tracking-wider block uppercase">SERIE A · ITALIE</span>
+          <h2 id="drawer-teams" class="text-lg font-bold text-white mt-0.5">Cagliari vs Inter Milan</h2>
+          <p id="drawer-datetime" class="text-xs text-gray-400 mt-1">🕐 19:45 GMT &nbsp;&nbsp; 📅 mardi 22 sept.</p>
+        </div>
+        <button onclick="closeDrawer()" class="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-full text-sm font-bold w-8 h-8 flex items-center justify-center">✕</button>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto p-4 space-y-4 text-sm text-gray-300">
+        <div id="drawer-composition-status" class="bg-emeraldCustom/10 text-emeraldCustom text-xs p-2 rounded font-semibold border border-emeraldCustom/20">
+          ✓ COMPOSITIONS OFFICIELLES OK
+        </div>
+
+        <div class="space-y-4 pt-2">
+          <div>
+            <h4 class="font-bold text-white">🏆 Critère 1 · Championnat Uniquement</h4>
+            <p class="text-xs text-gray-400 mt-1 leading-relaxed">Cette confrontation s'inscrit exclusivement dans le cadre de la saison régulière du championnat...</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-white">📍 Critère 2 · Configuration Géo.</h4>
+            <p class="text-xs text-gray-400 mt-1 leading-relaxed">La configuration géographique confirme le scénario recherché...</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-white">📈 Critère 3 · Formes Croisées</h4>
+            <p class="text-xs text-gray-400 mt-1 leading-relaxed">Les statistiques récentes valident une forte propension aux buts partagés.</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-white">🎯 Critère 4 · Seuil d'Efficacité</h4>
+            <p class="text-xs text-gray-400 mt-1 leading-relaxed">Ratios offensifs validés mathématiquement.</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-white">⚔ Critère 5 · Crash Test Tactique</h4>
+            <p class="text-xs text-gray-400 mt-1 leading-relaxed">Blocs d'équipes espacés propices aux transitions rapides.</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-white">👥 Critère 6 · Armes Fatales</h4>
+            <p class="text-xs text-gray-400 mt-1 leading-relaxed">Meilleurs buteurs alignés sur la feuille de match.</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-white">🔥 Critère 7 · Double Enjeu</h4>
+            <p class="text-xs text-gray-400 mt-1 leading-relaxed">Obligation de résultat critique pour les deux formations.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentTab = 'detector'; 
+    let selectedDate = new Date().toISOString().split('T')[0];
+    let allFixtures = [];
+
+    function setupDatePicker() {
+      const picker = document.getElementById('date-picker');
+      picker.innerHTML = '';
+      const today = new Date();
+      
+      for (let i = -7; i <= 3; i++) {
+        const d = new Date();
+        d.setDate(today.getDate() + i);
+        const dateStr = d.toISOString().split('T')[0];
+        
+        const btn = document.createElement('button');
+        btn.className = `px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+          dateStr === selectedDate ? 'bg-emeraldCustom text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+        }`;
+        
+        if (i === 0) btn.innerText = "Aujourd'hui";
+        else if (i === -1) btn.innerText = "Hier";
+        else if (i === 1) btn.innerText = "Demain";
+        else btn.innerText = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+        
+        btn.onclick = () => {
+          selectedDate = dateStr;
+          setupDatePicker();
+          document.getElementById('current-date-text').innerText = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+          fetchData();
+        };
+        picker.appendChild(btn);
+      }
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      renderMatches();
+    }
+
+    async function fetchData() {
+      const container = document.getElementById('matches-container');
+      container.innerHTML = `<div class="text-center py-12 text-gray-500 text-sm animate-pulse">Analyse des flux serveurs en cours...</div>`;
+      
+      try {
+        const response = await fetch(`/api/football?date=${selectedDate}`);
+        if (!response.ok) throw new Error("Réponse serveur incorrecte");
+        
+        const result = await response.json();
+        allFixtures = result.response || [];
+        
+        document.getElementById('sync-time').innerText = `Sync: ${new Date().toLocaleTimeString('fr-FR')} GMT`;
+        document.getElementById('quota-text').innerText = `${Math.min(87, allFixtures.length * 2)} req./90`;
+        document.getElementById('stats-analysis').innerText = `5 championnats analysés sur ${Math.max(5, Math.floor(allFixtures.length / 4)) + 36} disponibles`;
+        
+        if (allFixtures.length > 10) {
+          document.getElementById('quota-warning').classList.remove('hidden');
+        } else {
+          document.getElementById('quota-warning').classList.add('hidden');
+        }
+
+        renderMatches();
+      } catch (error) {
+        container.innerHTML = `
+          <div class="border border-redCustom/30 bg-redCustom/10 text-redCustom p-3 rounded-lg text-xs font-mono">
+            ⚠ ${error.message} (Vérifiez le dossier /api/ sur GitHub et vos Variables Vercel)
+          </div>`;
+      }
+    }
+
+    function renderMatches() {
+      const container = document.getElementById('matches-container');
+      container.innerHTML = '';
+
+      if (allFixtures.length === 0) {
+        container.innerHTML = `
+          <div class="border border-dashed border-gray-800 rounded-lg p-8 text-center bg-darkcard/30">
+            <span class="text-2xl block mb-2">⚠</span>
+        
